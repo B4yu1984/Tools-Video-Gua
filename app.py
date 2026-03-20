@@ -6,9 +6,11 @@ from huggingface_hub import InferenceClient
 GEMINI_KEY = st.secrets["GEMINI_KEY"]
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
-# 2. Setup Google AI (Ganti ke Model Pro biar gak 404)
+# 2. Setup Google AI (Pake nama model yang paling standar)
 genai.configure(api_key=GEMINI_KEY)
-gemini = genai.GenerativeModel("gemini-pro") 
+# Coba pake 'gemini-1.5-flash-latest' atau 'gemini-pro' tanpa embel-embel
+model_name = 'models/gemini-1.5-flash' 
+gemini = genai.GenerativeModel(model_name)
 
 # 3. Setup HuggingFace
 client = InferenceClient(token=HF_TOKEN)
@@ -32,4 +34,7 @@ if st.button("🚀 MULAI BUAT VIDEO"):
             )
             st.video(video_res)
         except Exception as e:
+            # Kalau masih eror model, kita kasih tau model apa aja yang ada
             st.error(f"Eror: {e}")
+            if "404" in str(e):
+                st.warning("Coba ganti baris model_name jadi 'gemini-pro' atau 'gemini-1.5-flash'")
