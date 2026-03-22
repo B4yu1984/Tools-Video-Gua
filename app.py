@@ -22,7 +22,6 @@ if 'naskah' not in st.session_state:
     st.session_state.naskah = ""
 if 'prompt_data' not in st.session_state:
     st.session_state.prompt_data = []
-# FIX NYA DI SINI: Kita siapin kotak memori buat nyimpen pilihan VO lu
 if 'vo_gender' not in st.session_state:
     st.session_state.vo_gender = ""
 
@@ -53,7 +52,7 @@ if st.session_state.step == 1:
         else:
             with st.spinner("Gemini lagi nulis naskah..."):
                 try:
-                    # FIX: Simpan pilihan VO ke dalam memori sebelum lanjut ke Step 2
+                    # Simpan pilihan VO ke dalam memori
                     st.session_state.vo_gender = pilihan_vo
                     
                     content_parts = []
@@ -68,6 +67,7 @@ if st.session_state.step == 1:
                     img_produk = Image.open(foto_produk)
                     content_parts.append(img_produk)
                     
+                    # PROMPT NASKAH DENGAN ATURAN BARU (No. 5)
                     prompt_naskah = f"""
                     Buat naskah video TikTok pendek jualan produk '{prod_name}'.
                     Aturan:
@@ -84,6 +84,7 @@ if st.session_state.step == 1:
                        **VO:** (Apa yang diucapkan)
                        **Teks di Layar:** (Teks hook/highlight)
                        ---
+                    5. ATURAN VISUAL/VIDEO: Hindari adegan interaksi fisik yang rumit pada produk (seperti membuka tutup, menuangkan air, atau mengangkat barang). Fokuskan visual pada: pergerakan kamera sinematik, senyuman/ekspresi talent, atau gestur tangan yang HANYA menunjuk ke arah produk tanpa merubah/menyentuh bentuk fisiknya.
                     """
                     content_parts.append(prompt_naskah)
                     
@@ -112,7 +113,6 @@ if st.session_state.step == 2:
         if st.button("✨ VALIDE NASKAH & RACIK MASTER PROMPT"):
             with st.spinner("Meracik Master Prompt Video & Gambar..."):
                 try:
-                    # FIX: Sekarang kita panggil vo_gender dari memori (session_state)
                     prompt_structure = f"""
                     Berdasarkan naskah draf ini:
                     {st.session_state.naskah}
