@@ -1,45 +1,72 @@
 import streamlit as st
 import google.generativeai as genai
-from huggingface_hub import InferenceClient
+import requests
+import time
 
-# 1. Ambil Key
-GEMINI_KEY = st.secrets["GEMINI_KEY"]
-HF_TOKEN = st.secrets["HF_TOKEN"]
-
-# 2. Setup Google AI
-genai.configure(api_key=GEMINI_KEY)
-
-# --- JURUS ANTI 404 (Auto-Select Model) ---
+# --- KONFIGURASI ---
 try:
-    # Cari model yang beneran aktif di akun lu
-    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    # Prioritas: Flash (cepet), kalau gak ada ambil Pro, kalau gak ada ambil apa aja yang tersedia
-    target_model = next((m for m in models if 'flash' in m), 
-                        next((m for m in models if 'pro' in m), models[0]))
-    gemini = genai.GenerativeModel(target_model)
-except Exception as e:
-    st.error(f"Gagal konek: {e}")
+    GEMINI_KEY = st.secrets["GEMINI_KEY"]
+    HF_TOKEN = st.secrets["HF_TOKEN"]
+except Exception:
+    st.error("Kunci API belum diset di Secrets, Bro!")
     st.stop()
 
-# 3. Setup HuggingFace
-client = InferenceClient(token=HF_TOKEN)
+# --- SETUP GOOGLE AI ---
+genai.configure(api_key=GEMINI_KEY)
+try:
+    # Cari model Gemini yang aktif
+    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    target_model = next((m for m in models if 'flash' in m), next((m for m in models if 'pro' in m), models[0]))
+    gemini = genai.GenerativeModel(target_model)
+except Exception as e:
+    st.error(f"Gagal konek ke Gemini: {e}")
+    st.stop()
 
+# --- UI APLIKASI ---
 st.title("🎥 Affiliate Video Pro")
-st.write(f"✅ Sistem Aktif: `{target_model}`")
+st.write(f"✅ Sistem Naskah Aktif (`{target_model}`)")
+st.write("---")
 
-prod_name = st.text_input("Nama Produk")
-uploaded_files = st.file_uploader("Upload Foto", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Keramik Gold")
+# Kita batasi upload satu foto aja dulu biar stabil
+uploaded_file = st.file_uploader("Upload Foto Produk", type=['jpg', 'png', 'jpeg'])
 
-if st.button("🚀 MULAI BUAT VIDEO"):
-    if prod_name and uploaded_files:
+# --- EKSEKUSI JURUS UTAMA ---
+if st.button("🚀 MULAI BUAT KONTEN"):
+    if not prod_name or not uploaded_file:
+        st.error("Isi nama produk & upload foto dulu, Bro!")
+    else:
         try:
-            with st.spinner("Nulis naskah..."):
-                res = gemini.generate_content(f"Naskah TikTok pendek jualan {prod_name}. Bahasa gaul.")
-                st.info(f"📜 Naskah: {res.text}")
-            
-            with st.spinner("Bikin video..."):
-                img_bytes = uploaded_files[0].getvalue()
-                video_res = client.post(data=img_bytes, model="stabilityai/stable-video-diffusion-img2vid-xt")
-                st.video(video_res)
-        except Exception as e:
-            st.error(f"Eror eksekusi: {e}")
+            # STEP 1: GENERATE NASKAH (UDAH JALAN)
+            with st.spinner("Si Gemini lagi mikir naskah..."):
+                prompt_script = f"Buat naskah video TikTok pendek untuk jualan produk {prod_name}. Bahasa gaul Indonesia yang menarik."
+                res = gemini.generate_content(prompt_script)
+                naskah = res.text
+                st.info(f"📜 **Naskah AI:**\n{naskah}")
+
+            # STEP 2: GENERATE VIDEO (PERBAIKAN DI SINI)
+            with st.spinner("Hugging Face lagi ngerakit video (bisa 30 detik+)..."):
+                # Baca file foto jadi data biner
+                img_bytes = uploaded_file.getvalue()
+                
+                # Kita pake cara manual pake requests biar aman lintas versi library
+                API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt"
+                headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
+                # Kirim foto sebagai data biner ke API
+                response = requests.post(API_URL, headers=headers, data=img_bytes)
+                
+                # Cek hasil
+                if response.status_code == 200:
+                    st.success("✅ Video Berhasil Dibuat!")
+                    st.video(response.content)
+                    st.balloons()
+                elif response.status_code == 503: # Server penuh/loading model
+                    st.warning("⚠️ Server video lagi penuh/loading model. Coba klik tombolnya lagi dalam 1 menit.")
+                else:
+                    st.error(f"Gagal generate video. Kode error: {response.status_code}")
+                    st.write(f"Detail error: {response.text}")
+
+            except Exception as e:
+                st.error(f"Eror eksekusi total: {str(e)}")
+
