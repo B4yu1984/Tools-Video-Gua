@@ -8,7 +8,9 @@ try:
     GEMINI_KEY = st.secrets["GEMINI_KEY"]
     genai.configure(api_key=GEMINI_KEY)
     
+    # JURUS DETEKTIF: Cari nama model Flash yang bener-bener aktif
     models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    # Gak boleh pake teks manual gemini-1.5-flash, biar gak 404 lagi Bro!
     target_model = next((m for m in models if 'flash' in m), models[0])
     model_gemini = genai.GenerativeModel(target_model)
 except Exception as e:
@@ -16,25 +18,33 @@ except Exception as e:
     st.stop()
 
 # --- 2. SETUP STATE MANAGEMENT ---
+# Ini kotak memori permanen aplikasi kita
 if 'step' not in st.session_state:
     st.session_state.step = 1
 if 'naskah' not in st.session_state:
     st.session_state.naskah = ""
 if 'prompt_data' not in st.session_state:
     st.session_state.prompt_data = []
+# Kita tambahin memori buat VO, BG, dan Aktivitas
 if 'vo_gender' not in st.session_state:
     st.session_state.vo_gender = ""
+if 'pilihan_bg' not in st.session_state:
+    st.session_state.pilihan_bg = ""
+if 'aktivitas' not in st.session_state:
+    st.session_state.aktivitas = ""
 
 # --- 3. UI APLIKASI ---
-st.set_page_config(page_title="Sutradara Affiliate Pro", page_icon="🎬", layout="wide")
-st.title("🎬 Sutradara Affiliate Pro (Veo Master)")
-st.write("Flow: Naskah -> Validasi Teks -> Foto di Gemini Chat -> Animasikan di Veo (Full Prompt)")
+# Pake layout wide biar lega
+st.set_page_config(page_title="Sutradara Affiliate Pro v3", page_icon="🎬", layout="wide")
+st.title("🎬 Sutradara Affiliate Pro v3 (Veo Master + Konteks Pro)")
+st.write(f"✅ Sistem Aktif: `{target_model}`")
+st.write("Flow Pro: Naskah -> Validasi Teks -> Foto di Gemini Chat -> Animasikan di Veo")
 st.write("---")
 
 # === STEP 1: FORM INPUT ===
 if st.session_state.step == 1:
     st.subheader("📝 1. Persiapan Syuting")
-    prod_name = st.text_input("Nama Produk", placeholder="Contoh: Wadah Saji Emas")
+    prod_name = st.text_input("Nama Produk", placeholder="Contoh: Wadah Saji Emas / Smartwatch Pro")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -44,30 +54,39 @@ if st.session_state.step == 1:
         foto_model = st.file_uploader("🧍‍♂️ Foto Model/Talent (OPSIONAL)", type=['jpg', 'png', 'jpeg'])
         if foto_model: st.image(foto_model, caption="Talent Asli", width=200)
 
-    pilihan_vo = st.selectbox("🎙️ Pilihan Voice Over (VO)", ["Suara Wanita (Ceria/Warm)", "Suara Pria (Enerjik/Wibawa)"])
+    # BARU: Pilihan Background
+    pilihan_bg_user = st.selectbox("🖼️ Pilihan Background", ["Dapur", "Pinggir Jalan Kota", "Taman", "Studio", "Kamar Tidur"])
+    
+    # BARU: Input Free Text Aktivitas
+    aktivitas_user = st.text_input("🏃‍♂️ Aktivitas Talent", placeholder="Contoh: lari atau joging / sedang memasak")
+
+    vo_gender = st.selectbox("🎙️ Pilihan Voice Over (VO)", ["Suara Wanita (Ceria/Warm)", "Suara Pria (Enerjik/Wibawa)"])
 
     if st.button("📝 GENERATE NASKAH (SCENE BY SCENE)"):
-        if not prod_name or not foto_produk:
-            st.error("Nama Produk dan Foto Produk WAJIB diisi, Bro!")
+        # Validasi input wajib
+        if not prod_name or not foto_produk or not pilihan_bg_user or not aktivitas_user:
+            st.error("Nama Produk, Foto Produk, Background, dan Aktivitas WAJIB diisi, Bro!")
         else:
-            with st.spinner("Gemini lagi nulis naskah..."):
+            with st.spinner("Gemini lagi nulis naskah yang nyatu sama konteks..."):
                 try:
-                    # Simpan pilihan VO ke dalam memori
-                    st.session_state.vo_gender = pilihan_vo
+                    # Simpan pilihan ke dalam memori
+                    st.session_state.vo_gender = vo_gender
+                    st.session_state.pilihan_bg = pilihan_bg_user
+                    st.session_state.aktivitas = aktivitas_user
                     
                     content_parts = []
                     
                     if foto_model:
-                        instruksi_model = "VIDEO MENGGUNAKAN TALENT/MODEL. Gabungkan interaksi model dengan produk."
+                        instruksi_model = f"VIDEO MENGGUNAKAN TALENT/MODEL. Gabungkan interaksi model dengan produk. Model akan melakukan aktivitas '{st.session_state.aktivitas}' di background '{st.session_state.pilihan_bg}'."
                         img_model = Image.open(foto_model)
                         content_parts.append(img_model)
                     else:
-                        instruksi_model = "VIDEO TANPA TALENT. Fokus 100% pada keindahan produk (B-Roll style)."
+                        instruksi_model = f"VIDEO TANPA TALENT. Fokus 100% pada keindahan dan detail produk secara sinematik (B-Roll style) di background '{st.session_state.pilihan_bg}'."
                     
                     img_produk = Image.open(foto_produk)
                     content_parts.append(img_produk)
                     
-                    # PROMPT NASKAH DENGAN ATURAN BARU (No. 5)
+                    # UPDATE Prompt Naskah buat masukin konteks BG & Aktivitas
                     prompt_naskah = f"""
                     Buat naskah video TikTok pendek jualan produk '{prod_name}'.
                     Aturan:
@@ -80,8 +99,8 @@ if st.session_state.step == 1:
                     4. Pecah menjadi 3-4 Scene. Format wajib per scene (Pisahkan dengan garis '---'):
                        
                        [SCENE X]
-                       **Visual Description:** (Jelaskan visualnya detail)
-                       **VO:** (Apa yang diucapkan)
+                       **Visual Description:** (Jelaskan visualnya detail, sebutkan background '{st.session_state.pilihan_bg}' dan aktivitas '{st.session_state.aktivitas}')
+                       **VO:** (Apa yang diucapkan, sesuaikan tone dengan aktivitas. Misal: Ceria saat lari di taman)
                        **Teks di Layar:** (Teks hook/highlight)
                        ---
                     5. ATURAN VISUAL/VIDEO: Hindari adegan interaksi fisik yang rumit pada produk (seperti membuka tutup, menuangkan air, atau mengangkat barang). Fokuskan visual pada: pergerakan kamera sinematik, senyuman/ekspresi talent, atau gestur tangan yang HANYA menunjuk ke arah produk tanpa merubah/menyentuh bentuk fisiknya.
@@ -104,15 +123,16 @@ if st.session_state.step == 2:
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        if st.button("🔁 GENERATE ULANG NASKAH"):
+        if st.button("🔁 GENERATE ULANG NASKAH (AI)"):
             st.session_state.step = 1
             st.session_state.naskah = ""
             st.rerun()
             
     with col_btn2:
         if st.button("✨ VALIDE NASKAH & RACIK MASTER PROMPT"):
-            with st.spinner("Meracik Master Prompt Video & Gambar..."):
+            with st.spinner("Meracik Master Prompt Video & Gambar (SDXL/Veo/Nano Banana 2)..."):
                 try:
+                    # UPDATE Prompt JSON buat masukin konteks BG & Aktivitas secara mandiri
                     prompt_structure = f"""
                     Berdasarkan naskah draf ini:
                     {st.session_state.naskah}
@@ -122,11 +142,12 @@ if st.session_state.step == 2:
                     [
                       {{
                         "scene": "1",
-                        "image_prompt": "A highly detailed, cinematic studio photograph of [produk] in a setting described in the visual, 8k resolution, photorealistic",
-                        "video_prompt": "Ultra realistic commercial video, vertical 9:16.\\n\\nScene: (Deskripsikan visual scene secara presisi bahasa Inggris)\\n\\nCamera movement: (Deskripsikan pergerakan kamera misal: Start from right, slowly slide left while zooming in. Smooth cinematic motion, shallow depth of field)\\n\\nLighting & FX: (Deskripsikan lighting misal: Natural light reflection. Constraints: No dramatic effects, no exaggerated lighting)\\n\\nAudio & Ambient: (Deskripsikan background misal: Realistic ambient room tone only. No background music)\\n\\nVoice over: (Contoh: {st.session_state.vo_gender}, natural Indonesian accent. She/He says calmly: '(Masukkan kalimat VO dari naskah di sini)')\\n\\nHigh detail, 4K realism, No subtitles, No watermark."
+                        "image_prompt": "A highly detailed, cinematic studio photograph of [produk polos description] being held/worn by [model description if any] while performing '{st.session_state.aktivitas}' on a '{st.session_state.pilihan_bg}' background, realistic cinematic lighting (e.g., natural sun for park, softbox for studio), 8k resolution, photorealistic",
+                        "video_prompt": "Ultra realistic commercial video, vertical 9:16.\\n\\nScene: (Deskripsikan visual scene secara presisi bahasa Inggris, sebutkan background '{st.session_state.pilihan_bg}' dan aktivitas '{st.session_state.aktivitas}')\\n\\nTalent Motion: (The talent smiles naturally, makes subtle expressive hand gestures while talking, slight head tilt, natural breathing, and relaxed body language. NOT a static pose.)\\n\\nCamera movement: (Deskripsikan pergerakan kamera misal: Start from right, slowly slide left while zooming in. Smooth cinematic motion, shallow depth of field)\\n\\nLighting & FX: (Deskripsikan lighting misal: Natural daylight reflection for park, soft warm light for bedroom)\\n\\nAudio & Ambient: (Deskripsikan background misal: Realistic ambient room tone with park sounds, city noise, or quiet room)\\n\\nVoice over: (Contoh: {st.session_state.vo_gender}, natural Indonesian accent. She/He says calmly/energetically: '(Masukkan kalimat VO dari naskah di sini)')\\n\\nHigh detail, 4K realism, No subtitles, No watermark."
                       }}
                     ]
                     """
+                    # JURUS DETEKTIF: Panggil model yang terdeteksi
                     res_structure = model_gemini.generate_content(prompt_structure)
                     clean_json = res_structure.text.replace("```json", "").replace("```", "").strip()
                     st.session_state.prompt_data = json.loads(clean_json)
@@ -146,9 +167,11 @@ if st.session_state.step == 3:
         with st.container():
             st.write(f"### 🎬 SCENE {s_num}")
             
+            # PROMPT 1: Buat ke Gemini Chat
             st.write("**1️⃣ Copy Image Prompt Ini ke Chat Gemini (Buat Bikin Foto):**")
             st.code(scene_data['image_prompt'], language="text")
             
+            # PROMPT 2: Buat ke Veo / Labs Flow
             st.write("**2️⃣ Copy Master Video Prompt Ini ke Veo/Labs Flow:**")
             st.code(scene_data['video_prompt'], language="text")
             
