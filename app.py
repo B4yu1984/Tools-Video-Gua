@@ -2,55 +2,56 @@ import streamlit as st
 import google.generativeai as genai
 import requests
 
-# --- 1. AMBIL KUNCI ---
+# 1. AMBIL KUNCI
 GEMINI_KEY = st.secrets["GEMINI_KEY"]
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
-# --- 2. SETUP GEMINI ---
+# 2. SETUP GOOGLE AI (JURUS DETEKTIF)
 genai.configure(api_key=GEMINI_KEY)
-model_gemini = genai.GenerativeModel('gemini-1.5-flash')
+try:
+    # Cari model yang aktif di akun lu secara otomatis
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    # Pilih flash kalau ada, kalau nggak ada pilih pro, atau yang paling atas
+    target_model = next((m for m in available_models if 'flash' in m), 
+                        next((m for m in available_models if 'pro' in m), available_models[0]))
+    gemini = genai.GenerativeModel(target_model)
+except Exception as e:
+    st.error(f"Gagal konek ke Google AI: {e}")
+    st.stop()
 
-# --- 3. TAMPILAN ---
-st.set_page_config(page_title="Affiliate Video Pro", page_icon="🎥")
+# 3. UI APLIKASI
 st.title("🎥 Affiliate Video Pro")
-st.write("---")
+st.write(f"✅ Sistem Naskah Aktif: `{target_model}`")
 
-prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Keramik Mewah")
+prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Marmer")
+# Fitur Multiple Upload Aktif Lagi
 uploaded_files = st.file_uploader("Upload Foto Produk (Bisa banyak)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
 
 if st.button("🚀 MULAI BUAT KONTEN"):
-    if not prod_name or not uploaded_files:
-        st.error("Isi nama produk & upload foto dulu, Bro!")
-    else:
+    if prod_name and uploaded_files:
         try:
             # STEP 1: NASKAH
-            with st.spinner("Gemini lagi nulis naskah..."):
-                res = model_gemini.generate_content(f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul.")
+            with st.spinner("Gemini lagi mikir naskah..."):
+                res = gemini.generate_content(f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul.")
                 st.info(f"📜 **Naskah AI:**\n{res.text}")
 
             # STEP 2: VIDEO
-            with st.spinner("Lagi ngerakit video (Bisa 1-2 menit)..."):
+            with st.spinner("Hugging Face lagi ngerakit video..."):
                 img_bytes = uploaded_files[0].getvalue()
-                
-                # ALAMAT BARU YANG DIMINTA HUGGING FACE
+                # Pake router terbaru
                 API_URL = "https://router.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt"
                 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-                
-                # Kirim data
                 response = requests.post(API_URL, headers=headers, data=img_bytes, timeout=180)
                 
                 if response.status_code == 200:
-                    st.success("✅ Video Berhasil Dibuat!")
+                    st.success("✅ Video Jadi!")
                     st.video(response.content)
                     st.balloons()
-                elif response.status_code == 503:
-                    st.warning("⚠️ Server lagi 'pemanasan'. Tunggu 30 detik terus klik tombol lagi ya!")
                 else:
-                    st.error(f"Gagal generate video. Kode: {response.status_code}")
-                    st.write(f"Detail: {response.text[:200]}") # Biar kita tau eror aslinya apa
-
+                    st.error(f"Gagal Video (Kode {response.status_code})")
+                    st.write("Saran: Klik tombol sekali lagi, biasanya server butuh pemanasan.")
         except Exception as e:
-            st.error(f"Ada masalah sistem: {e}")
+            st.error(f"Eror eksekusi: {e}")
 
 # Galeri Preview
 if uploaded_files:
