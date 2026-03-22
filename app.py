@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import json
+import re
 
 # --- 1. SETUP KUNCI & GEMINI ---
 try:
@@ -31,7 +32,7 @@ if 'vo_style' not in st.session_state: st.session_state.vo_style = ""
 # --- 3. UI APLIKASI ---
 st.set_page_config(page_title="Sutradara Affiliate Pro Ultimate", page_icon="🎬", layout="wide")
 st.title("🎬 Sutradara Affiliate Pro Ultimate")
-st.write(f"✅ Sistem Aktif: `{target_model}` | 🎧 Audio Optimizer (Anti-Robot)")
+st.write(f"✅ Sistem Aktif: `{target_model}` | 🎧 Audio Optimizer + Anti-Crash JSON")
 st.write("---")
 
 # === STEP 1: FORM INPUT ===
@@ -44,7 +45,7 @@ if st.session_state.step == 1:
     with col_b:
         merk_user = st.text_input("🏷️ Merk Produk (Opsional)", placeholder="Contoh: Samsung / Goto (Biar disebut di naskah)")
 
-    kelebihan_user = st.text_area("✨ Kelebihan/Fitur Produk (Opsional)", placeholder="Tuliskan data valid kelebihan produk di sini agar naskah tidak lebay/halu...")
+    kelebihan_user = st.text_area("✨ Kelebihan/Fitur Produk (Opsional)", placeholder="Tuliskan data valid kelebihan produk di sini...")
 
     st.subheader("🎥 2. Setup Visual & Talent")
     col1, col2 = st.columns(2)
@@ -111,7 +112,6 @@ if st.session_state.step == 1:
                        - SCENE AKHIR: Call to Action (CTA) yang jelas.
                         """
 
-                    # PERUBAHAN BESAR DI SINI (ATURAN 6: VO & DURASI)
                     prompt_naskah = f"""
                     Buat naskah video TikTok jualan produk '{prod_name}'.
                     Aturan:
@@ -122,19 +122,17 @@ if st.session_state.step == 1:
                     5. STRUKTUR NASKAH WAJIB ({st.session_state.gaya_video}):
                        {struktur_scene}
                     6. ATURAN DURASI & SUARA AI (SANGAT PENTING):
-                       - AI Video (Veo) HANYA BISA render 8 detik per scene.
-                       - Kalimat VO per scene WAJIB PENDEK! Maksimal HANYA 10 hingga 15 KATA per scene (sekitar 5 detik diucapkan).
-                       - Jika informasi panjang, PECAH naskah menjadi lebih banyak scene (Bisa 4 hingga 8 Scene). Jangan tumpuk teks di 1 scene!
+                       - Kalimat VO per scene WAJIB PENDEK! Maksimal HANYA 10 hingga 15 KATA per scene.
+                       - Jika informasi panjang, PECAH naskah menjadi lebih banyak scene (Bisa 4 hingga 8 Scene). 
                        - Gunakan bahasa lisan yang sangat natural (contoh: tambahkan "Wah", "Eits", "Jujur ya").
-                       - WAJIB gunakan tanda elipsis ("...") atau koma (",") di tengah kalimat agar AI pengisi suara mengambil nafas dan tidak terdengar seperti robot monoton.
+                       - WAJIB gunakan tanda elipsis ("...") atau koma (",") di tengah kalimat agar AI pengisi suara mengambil nafas.
                     7. Format wajib per scene (Pisahkan dengan garis '---'):
                        
                        [SCENE X]
                        **Visual Description:** (Jelaskan visualnya, sebutkan background '{st.session_state.pilihan_bg}' & aktivitas '{st.session_state.aktivitas}')
-                       **VO:** (Tuliskan kalimat VO maksimal 15 KATA. Sesuaikan dengan gaya {st.session_state.vo_style})
+                       **VO:** (Tuliskan kalimat VO maksimal 15 KATA)
                        **Teks di Layar:** (Teks hook/highlight)
                        ---
-                    8. ATURAN VISUAL/VIDEO: Hindari adegan interaksi fisik yang rumit pada produk (seperti membuka tutup). Fokus pada pergerakan kamera sinematik, ekspresi, atau gestur menunjuk.
                     """
                     content_parts.append(prompt_naskah)
                     
@@ -187,30 +185,43 @@ if st.session_state.step == 2:
             
     with col_btn2:
         if st.button("✨ VALIDASI NASKAH & RACIK MASTER PROMPT"):
-            with st.spinner("Meracik Master Prompt Video & Gambar..."):
+            with st.spinner("Mengekstrak data untuk Master Prompt..."):
                 try:
-                    # PERUBAHAN PADA INSTRUKSI VEO AUDIO (Lebih Manusiawi)
+                    # PERUBAHAN BESAR DI SINI (STRUKTUR JSON LEBIH SEDERHANA & AMAN)
                     prompt_structure = f"""
                     Berdasarkan naskah draf ini:
                     {st.session_state.naskah}
                     
-                    Pecah menjadi data prompt.
-                    Format output wajib menggunakan format LIST JSON (Hanya JSON, tanpa teks lain):
+                    Pecah menjadi data prompt terstruktur.
+                    Format output WAJIB berupa LIST JSON yang valid (Tanpa kutip ganda/double quotes di dalam teks kalimat, ganti dengan single quote (') jika perlu).
                     [
                       {{
                         "scene": "1",
                         "image_prompt": "A highly detailed, cinematic studio photograph of {st.session_state.merk_produk} [produk polos description] being held/worn by [model description if any] while performing '{st.session_state.aktivitas}' on a '{st.session_state.pilihan_bg}' background, realistic cinematic lighting, 8k resolution, photorealistic",
-                        "video_prompt": "Ultra realistic commercial video, vertical 9:16.\\n\\nScene: (Deskripsikan visual scene secara presisi bahasa Inggris, sebutkan background '{st.session_state.pilihan_bg}' dan aktivitas '{st.session_state.aktivitas}')\\n\\nTalent Motion: (The talent smiles naturally, makes subtle expressive hand gestures while talking, slight head tilt, natural breathing, and relaxed body language. NOT a static pose.)\\n\\nCamera movement: (Deskripsikan pergerakan kamera misal: Start from right, slowly slide left while zooming in. Smooth cinematic motion, shallow depth of field)\\n\\nLighting & FX: (Deskripsikan lighting)\\n\\nAudio & Ambient: (Deskripsikan background misal: Realistic ambient room tone)\\n\\nVoice over: (Extremely realistic human voice, {st.session_state.vo_gender}, {st.session_state.vo_style} style, natural Indonesian accent. Emotionally expressive, dynamic intonation, natural pauses and breaths. NOT robotic or monotonous. She/He says: '(Masukkan kalimat VO dari naskah di sini. PASTIKAN MASUKKAN TANDA BACA seperti elipsis (...) dan koma (,) agar AI mengambil nafas secara natural)')\\n\\nHigh detail, 4K realism, No subtitles, No watermark."
+                        "v_scene": "Deskripsi singkat visual scene dalam bahasa Inggris",
+                        "v_camera": "Instruksi kamera singkat misal: Slowly slide left while zooming in. Smooth motion.",
+                        "v_lighting": "Instruksi lighting",
+                        "v_audio": "Instruksi audio background misal: Realistic ambient room tone",
+                        "v_vo": "Masukkan teks VO bahasa Indonesia di sini persis dari naskah"
                       }}
                     ]
                     """
                     res_structure = model_gemini.generate_content(prompt_structure)
-                    clean_json = res_structure.text.replace("```json", "").replace("```", "").strip()
+                    
+                    # Bersihkan markdown json kalau ada
+                    clean_json = res_structure.text.strip()
+                    if clean_json.startswith("```json"):
+                        clean_json = clean_json[7:-3].strip()
+                    elif clean_json.startswith("```"):
+                        clean_json = clean_json[3:-3].strip()
+                        
                     st.session_state.prompt_data = json.loads(clean_json)
                     st.session_state.step = 3
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Gagal bikin prompt terstruktur: {e}")
+                    # Tampilkan erornya biar ketauan kalau JSON-nya masih ngaco
+                    st.error(f"Gagal bikin prompt terstruktur. Data JSON tidak valid. Silakan klik tombol '✨ VALIDASI NASKAH' sekali lagi.")
+                    st.code(res_structure.text)
 
 # === STEP 3: PROMPT FINAL ===
 if st.session_state.step == 3:
@@ -218,14 +229,32 @@ if st.session_state.step == 3:
     st.subheader("🚀 3. Prompt Siap Eksekusi (The Masterplan)")
     
     for scene_data in st.session_state.prompt_data:
-        s_num = scene_data['scene']
+        s_num = scene_data.get('scene', 'X')
         
         with st.container():
             st.write(f"### 🎬 SCENE {s_num}")
             st.write("**1️⃣ Copy Image Prompt Ini ke Chat Gemini (Buat Bikin Foto):**")
-            st.code(scene_data['image_prompt'], language="text")
+            st.code(scene_data.get('image_prompt', ''), language="text")
+            
             st.write("**2️⃣ Copy Master Video Prompt Ini ke Veo/Labs Flow:**")
-            st.code(scene_data['video_prompt'], language="text")
+            
+            # PERAKITAN MASTER PROMPT DI PYTHON (Gak akan kena eror JSON lagi!)
+            v_scene = scene_data.get('v_scene', '')
+            v_camera = scene_data.get('v_camera', '')
+            v_lighting = scene_data.get('v_lighting', '')
+            v_audio = scene_data.get('v_audio', '')
+            v_vo = scene_data.get('v_vo', '')
+            
+            master_video_prompt = f"Ultra realistic commercial video, vertical 9:16.\n\n"
+            master_video_prompt += f"Scene: {v_scene}\n\n"
+            master_video_prompt += f"Talent Motion: The talent smiles naturally, makes subtle expressive hand gestures while talking, slight head tilt, natural breathing, and relaxed body language. NOT a static pose.\n\n"
+            master_video_prompt += f"Camera movement: {v_camera}\n\n"
+            master_video_prompt += f"Lighting & FX: {v_lighting}\n\n"
+            master_video_prompt += f"Audio & Ambient: {v_audio}\n\n"
+            master_video_prompt += f"Voice over: (Extremely realistic human voice, {st.session_state.vo_gender}, {st.session_state.vo_style} style, natural Indonesian accent. Emotionally expressive, dynamic intonation, natural pauses and breaths. NOT robotic or monotonous. She/He says: '{v_vo}')\n\n"
+            master_video_prompt += f"High detail, 4K realism, No subtitles, No watermark."
+            
+            st.code(master_video_prompt, language="text")
             st.write("---")
 
     if st.button("🔄 Mulai Proyek Baru"):
