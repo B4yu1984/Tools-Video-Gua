@@ -22,11 +22,14 @@ if 'naskah' not in st.session_state:
     st.session_state.naskah = ""
 if 'prompt_data' not in st.session_state:
     st.session_state.prompt_data = []
+# FIX NYA DI SINI: Kita siapin kotak memori buat nyimpen pilihan VO lu
+if 'vo_gender' not in st.session_state:
+    st.session_state.vo_gender = ""
 
 # --- 3. UI APLIKASI ---
 st.set_page_config(page_title="Sutradara Affiliate Pro", page_icon="🎬", layout="wide")
 st.title("🎬 Sutradara Affiliate Pro (Veo Master)")
-st.write("Flow: Naskah -> Validasi Teks -> Foto di Gemini Chat -> Animasikan di Veo")
+st.write("Flow: Naskah -> Validasi Teks -> Foto di Gemini Chat -> Animasikan di Veo (Full Prompt)")
 st.write("---")
 
 # === STEP 1: FORM INPUT ===
@@ -42,7 +45,7 @@ if st.session_state.step == 1:
         foto_model = st.file_uploader("🧍‍♂️ Foto Model/Talent (OPSIONAL)", type=['jpg', 'png', 'jpeg'])
         if foto_model: st.image(foto_model, caption="Talent Asli", width=200)
 
-    vo_gender = st.selectbox("🎙️ Pilihan Voice Over (VO)", ["Suara Wanita (Ceria/Warm)", "Suara Pria (Enerjik/Wibawa)"])
+    pilihan_vo = st.selectbox("🎙️ Pilihan Voice Over (VO)", ["Suara Wanita (Ceria/Warm)", "Suara Pria (Enerjik/Wibawa)"])
 
     if st.button("📝 GENERATE NASKAH (SCENE BY SCENE)"):
         if not prod_name or not foto_produk:
@@ -50,6 +53,9 @@ if st.session_state.step == 1:
         else:
             with st.spinner("Gemini lagi nulis naskah..."):
                 try:
+                    # FIX: Simpan pilihan VO ke dalam memori sebelum lanjut ke Step 2
+                    st.session_state.vo_gender = pilihan_vo
+                    
                     content_parts = []
                     
                     if foto_model:
@@ -62,12 +68,11 @@ if st.session_state.step == 1:
                     img_produk = Image.open(foto_produk)
                     content_parts.append(img_produk)
                     
-                    # PERUBAHAN DI SINI: Masukin golden formula lu
                     prompt_naskah = f"""
                     Buat naskah video TikTok pendek jualan produk '{prod_name}'.
                     Aturan:
                     1. {instruksi_model}
-                    2. Voice Over menggunakan: {vo_gender}.
+                    2. Voice Over menggunakan: {st.session_state.vo_gender}.
                     3. STRUKTUR NASKAH WAJIB:
                        - SCENE AWAL: Gunakan HOOK yang kuat (pertanyaan atau pernyataan yang bikin penasaran/relate).
                        - SCENE TENGAH: Basa-basi asik, ceritakan kelebihan produk atau pengalaman menggunakan produk.
@@ -107,6 +112,7 @@ if st.session_state.step == 2:
         if st.button("✨ VALIDE NASKAH & RACIK MASTER PROMPT"):
             with st.spinner("Meracik Master Prompt Video & Gambar..."):
                 try:
+                    # FIX: Sekarang kita panggil vo_gender dari memori (session_state)
                     prompt_structure = f"""
                     Berdasarkan naskah draf ini:
                     {st.session_state.naskah}
@@ -117,7 +123,7 @@ if st.session_state.step == 2:
                       {{
                         "scene": "1",
                         "image_prompt": "A highly detailed, cinematic studio photograph of [produk] in a setting described in the visual, 8k resolution, photorealistic",
-                        "video_prompt": "Ultra realistic commercial video, vertical 9:16.\\n\\nScene: (Deskripsikan visual scene secara presisi bahasa Inggris)\\n\\nCamera movement: (Deskripsikan pergerakan kamera misal: Start from right, slowly slide left while zooming in. Smooth cinematic motion, shallow depth of field)\\n\\nLighting & FX: (Deskripsikan lighting misal: Natural light reflection. Constraints: No dramatic effects, no exaggerated lighting)\\n\\nAudio & Ambient: (Deskripsikan background misal: Realistic ambient room tone only. No background music)\\n\\nVoice over: (Contoh: {vo_gender}, natural Indonesian accent. She/He says calmly: '(Masukkan kalimat VO dari naskah di sini)')\\n\\nHigh detail, 4K realism, No subtitles, No watermark."
+                        "video_prompt": "Ultra realistic commercial video, vertical 9:16.\\n\\nScene: (Deskripsikan visual scene secara presisi bahasa Inggris)\\n\\nCamera movement: (Deskripsikan pergerakan kamera misal: Start from right, slowly slide left while zooming in. Smooth cinematic motion, shallow depth of field)\\n\\nLighting & FX: (Deskripsikan lighting misal: Natural light reflection. Constraints: No dramatic effects, no exaggerated lighting)\\n\\nAudio & Ambient: (Deskripsikan background misal: Realistic ambient room tone only. No background music)\\n\\nVoice over: (Contoh: {st.session_state.vo_gender}, natural Indonesian accent. She/He says calmly: '(Masukkan kalimat VO dari naskah di sini)')\\n\\nHigh detail, 4K realism, No subtitles, No watermark."
                       }}
                     ]
                     """
