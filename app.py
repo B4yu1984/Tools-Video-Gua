@@ -21,6 +21,7 @@ if 'step' not in st.session_state: st.session_state.step = 1
 if 'naskah' not in st.session_state: st.session_state.naskah = ""
 if 'prompt_data' not in st.session_state: st.session_state.prompt_data = []
 
+if 'prod_name' not in st.session_state: st.session_state.prod_name = ""
 if 'vo_gender' not in st.session_state: st.session_state.vo_gender = ""
 if 'pilihan_bg' not in st.session_state: st.session_state.pilihan_bg = ""
 if 'aktivitas' not in st.session_state: st.session_state.aktivitas = ""
@@ -32,7 +33,7 @@ if 'vo_style' not in st.session_state: st.session_state.vo_style = ""
 # --- 3. UI APLIKASI ---
 st.set_page_config(page_title="Sutradara Affiliate Pro Ultimate", page_icon="🎬", layout="wide")
 st.title("🎬 Sutradara Affiliate Pro Ultimate")
-st.write(f"✅ Sistem Aktif: `{target_model}` | 🎧 Audio Optimizer + Anti-Crash JSON")
+st.write(f"✅ Sistem Aktif: `{target_model}` | 🎧 Audio Optimizer + Export File")
 st.write("---")
 
 # === STEP 1: FORM INPUT ===
@@ -43,7 +44,7 @@ if st.session_state.step == 1:
     with col_a:
         prod_name = st.text_input("📦 Nama Produk (Wajib)", placeholder="Contoh: Smartwatch / Wadah Saji")
     with col_b:
-        merk_user = st.text_input("🏷️ Merk Produk (Opsional)", placeholder="Contoh: Samsung / Goto (Biar disebut di naskah)")
+        merk_user = st.text_input("🏷️ Merk Produk (Opsional)", placeholder="Contoh: Samsung / Goto")
 
     kelebihan_user = st.text_area("✨ Kelebihan/Fitur Produk (Opsional)", placeholder="Tuliskan data valid kelebihan produk di sini...")
 
@@ -77,6 +78,7 @@ if st.session_state.step == 1:
         else:
             with st.spinner("Sutradara AI lagi ngeracik naskah ultimate lu..."):
                 try:
+                    st.session_state.prod_name = prod_name
                     st.session_state.vo_gender = vo_gender_user
                     st.session_state.pilihan_bg = pilihan_bg_user
                     st.session_state.aktivitas = aktivitas_user
@@ -187,7 +189,6 @@ if st.session_state.step == 2:
         if st.button("✨ VALIDASI NASKAH & RACIK MASTER PROMPT"):
             with st.spinner("Mengekstrak data untuk Master Prompt..."):
                 try:
-                    # PERUBAHAN BESAR DI SINI (STRUKTUR JSON LEBIH SEDERHANA & AMAN)
                     prompt_structure = f"""
                     Berdasarkan naskah draf ini:
                     {st.session_state.naskah}
@@ -208,7 +209,6 @@ if st.session_state.step == 2:
                     """
                     res_structure = model_gemini.generate_content(prompt_structure)
                     
-                    # Bersihkan markdown json kalau ada
                     clean_json = res_structure.text.strip()
                     if clean_json.startswith("```json"):
                         clean_json = clean_json[7:-3].strip()
@@ -219,26 +219,35 @@ if st.session_state.step == 2:
                     st.session_state.step = 3
                     st.rerun()
                 except Exception as e:
-                    # Tampilkan erornya biar ketauan kalau JSON-nya masih ngaco
                     st.error(f"Gagal bikin prompt terstruktur. Data JSON tidak valid. Silakan klik tombol '✨ VALIDASI NASKAH' sekali lagi.")
                     st.code(res_structure.text)
 
-# === STEP 3: PROMPT FINAL ===
+# === STEP 3: PROMPT FINAL & EXPORT ===
 if st.session_state.step == 3:
     st.write("---")
     st.subheader("🚀 3. Prompt Siap Eksekusi (The Masterplan)")
     
+    # 1. PERSIAPKAN TEKS UNTUK DI-DOWNLOAD
+    export_text = f"🎬 PROYEK: {st.session_state.prod_name}\n"
+    export_text += f"🏷️ Merk: {st.session_state.merk_produk}\n"
+    export_text += f"=========================================\n\n"
+    export_text += f"📜 NASKAH FULL:\n\n{st.session_state.naskah}\n\n"
+    export_text += f"=========================================\n"
+    export_text += f"🚀 MASTER PROMPT VEO / LABS FLOW:\n\n"
+    
+    # 2. TAMPILKAN DI LAYAR SEKALIGUS GABUNGKAN KE EXPORT TEXT
     for scene_data in st.session_state.prompt_data:
         s_num = scene_data.get('scene', 'X')
         
         with st.container():
             st.write(f"### 🎬 SCENE {s_num}")
+            
+            # Image Prompt
+            img_prompt = scene_data.get('image_prompt', '')
             st.write("**1️⃣ Copy Image Prompt Ini ke Chat Gemini (Buat Bikin Foto):**")
-            st.code(scene_data.get('image_prompt', ''), language="text")
+            st.code(img_prompt, language="text")
             
-            st.write("**2️⃣ Copy Master Video Prompt Ini ke Veo/Labs Flow:**")
-            
-            # PERAKITAN MASTER PROMPT DI PYTHON (Gak akan kena eror JSON lagi!)
+            # Video Prompt
             v_scene = scene_data.get('v_scene', '')
             v_camera = scene_data.get('v_camera', '')
             v_lighting = scene_data.get('v_lighting', '')
@@ -254,11 +263,31 @@ if st.session_state.step == 3:
             master_video_prompt += f"Voice over: (Extremely realistic human voice, {st.session_state.vo_gender}, {st.session_state.vo_style} style, natural Indonesian accent. Emotionally expressive, dynamic intonation, natural pauses and breaths. NOT robotic or monotonous. She/He says: '{v_vo}')\n\n"
             master_video_prompt += f"High detail, 4K realism, No subtitles, No watermark."
             
+            st.write("**2️⃣ Copy Master Video Prompt Ini ke Veo/Labs Flow:**")
             st.code(master_video_prompt, language="text")
             st.write("---")
+            
+            # Tambahin ke teks export
+            export_text += f"--- SCENE {s_num} ---\n"
+            export_text += f"[IMAGE PROMPT]\n{img_prompt}\n\n"
+            export_text += f"[VIDEO PROMPT]\n{master_video_prompt}\n\n\n"
 
-    if st.button("🔄 Mulai Proyek Baru"):
-        st.session_state.step = 1
-        st.session_state.naskah = ""
-        st.session_state.prompt_data = []
-        st.rerun()
+    # 3. TOMBOL DOWNLOAD DAN RESTART
+    col_dl, col_restart = st.columns(2)
+    with col_dl:
+        # Tombol Download ini langsung nyimpen file .txt ke HP lu
+        file_name_clean = re.sub(r'[^a-zA-Z0-9]', '_', st.session_state.prod_name) # Bersihin nama file
+        st.download_button(
+            label="💾 DOWNLOAD PROJECT (.txt)",
+            data=export_text,
+            file_name=f"Project_{file_name_clean}.txt",
+            mime="text/plain"
+        )
+        st.info("💡 Klik tombol di atas biar prompt lu aman di HP kalau aplikasinya ketutup!")
+        
+    with col_restart:
+        if st.button("🔄 Mulai Proyek Baru"):
+            st.session_state.step = 1
+            st.session_state.naskah = ""
+            st.session_state.prompt_data = []
+            st.rerun()
