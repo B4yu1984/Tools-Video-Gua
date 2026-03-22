@@ -6,11 +6,12 @@ from huggingface_hub import InferenceClient
 GEMINI_KEY = st.secrets["GEMINI_KEY"]
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
-# 2. Setup Google AI (Pake nama model yang paling standar)
+# 2. Setup Google AI
 genai.configure(api_key=GEMINI_KEY)
-# Coba pake 'gemini-1.5-flash-latest' atau 'gemini-pro' tanpa embel-embel
-model_name = 'models/gemini-1.5-flash' 
-gemini = genai.GenerativeModel(model_name)
+
+# Trik: Kita panggil modelnya langsung tanpa prefix 'models/'
+# Karena beberapa versi library justru eror kalau dipakein prefix
+gemini = genai.GenerativeModel('gemini-1.5-flash')
 
 # 3. Setup HuggingFace
 client = InferenceClient(token=HF_TOKEN)
@@ -23,6 +24,7 @@ if st.button("🚀 MULAI BUAT VIDEO"):
     if prod_name and uploaded_files:
         try:
             # Step 1: Naskah
+            # Kita paksa pake generate_content dengan parameter minimal
             res = gemini.generate_content(f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul Indonesia.")
             st.info(f"📜 Naskah: {res.text}")
             
@@ -34,7 +36,4 @@ if st.button("🚀 MULAI BUAT VIDEO"):
             )
             st.video(video_res)
         except Exception as e:
-            # Kalau masih eror model, kita kasih tau model apa aja yang ada
             st.error(f"Eror: {e}")
-            if "404" in str(e):
-                st.warning("Coba ganti baris model_name jadi 'gemini-pro' atau 'gemini-1.5-flash'")
