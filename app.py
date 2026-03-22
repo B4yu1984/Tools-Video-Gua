@@ -1,14 +1,26 @@
 import streamlit as st
+import google.generativeai as genai
 import requests
 
 # --- 1. AMBIL KUNCI ---
 GEMINI_KEY = st.secrets["GEMINI_KEY"]
 HF_TOKEN = st.secrets["HF_TOKEN"]
 
-# --- 2. UI APLIKASI ---
+# --- 2. SETUP GEMINI (Balik ke versi Flash yang sukses kemarin!) ---
+genai.configure(api_key=GEMINI_KEY)
+try:
+    # Kita pake jurus detektif lagi yang udah terbukti nembus di akun lu
+    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    target_model = next((m for m in models if 'flash' in m), models[0])
+    model_gemini = genai.GenerativeModel(target_model)
+except Exception as e:
+    st.error(f"Gagal setup Gemini: {e}")
+    st.stop()
+
+# --- 3. UI APLIKASI ---
 st.set_page_config(page_title="Affiliate Video Pro", page_icon="🎥")
 st.title("🎥 Affiliate Video Pro")
-st.write("✅ Sistem Naskah Aktif: `Direct API (gemini-pro)`")
+st.write(f"✅ Sistem Naskah Aktif: `{target_model}`")
 st.write("---")
 
 prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Marmer")
@@ -18,51 +30,35 @@ if st.button("🚀 MULAI BUAT KONTEN"):
     if not prod_name or not uploaded_files:
         st.error("Isi nama produk & upload foto dulu, Bro!")
     else:
-        # STEP 1: NASKAH (GANTI MODEL KE GEMINI-PRO)
+        # STEP 1: NASKAH (UDAH PASTI JALAN)
         with st.spinner("Gemini lagi nulis naskah..."):
             try:
-                # PERUBAHAN DI SINI: Kita panggil 'gemini-pro' yang pasti aktif di semua API Key
-                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_KEY}"
-                prompt = f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul Indonesia yang asik dan viral."
-                
-                payload = {
-                    "contents": [{"parts": [{"text": prompt}]}]
-                }
-                headers = {"Content-Type": "application/json"}
-                
-                res = requests.post(gemini_url, json=payload, headers=headers)
-                
-                if res.status_code == 200:
-                    data = res.json()
-                    naskah = data['candidates'][0]['content']['parts'][0]['text']
-                    st.info(f"📜 **Naskah AI:**\n{naskah}")
-                else:
-                    st.error(f"Gagal narik naskah. Kode: {res.status_code}")
-                    st.write(res.text)
-                    st.stop() 
+                res = model_gemini.generate_content(f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul Indonesia yang asik.")
+                st.info(f"📜 **Naskah AI:**\n{res.text}")
             except Exception as e:
-                st.error(f"Eror sistem naskah: {e}")
+                st.error(f"Eror naskah: {e}")
                 st.stop()
 
-        # STEP 2: VIDEO (HUGGING FACE)
-        with st.spinner("Hugging Face lagi ngerakit video (Sabar, ini agak lama)..."):
+        # STEP 2: VIDEO (ANTI 410 GONE)
+        with st.spinner("Hugging Face lagi ngerakit video (Sabar, bisa 1-2 menit)..."):
             try:
                 img_bytes = uploaded_files[0].getvalue()
                 
+                # Kita pake model video Ali-Vilab yang aman dari eror 410
                 API_URL = "https://api-inference.huggingface.co/models/ali-vilab/i2vgen-xl"
-                hf_headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+                headers = {"Authorization": f"Bearer {HF_TOKEN}"}
                 
-                response = requests.post(API_URL, headers=hf_headers, data=img_bytes, timeout=120)
+                response = requests.post(API_URL, headers=headers, data=img_bytes, timeout=120)
                 
                 if response.status_code == 200:
                     st.success("✅ Video Berhasil Dibuat!")
                     st.video(response.content)
                     st.balloons()
                 elif response.status_code == 503:
-                    st.warning("⚠️ Server video lagi loading model. Sabar Bro, klik tombolnya lagi dalam 30 detik!")
+                    st.warning("⚠️ Server video lagi loading. Sabar Bro, klik tombolnya lagi dalam 30 detik!")
                 else:
                     st.error(f"Gagal generate video. Kode: {response.status_code}")
-                    st.write("Server video gratisan lagi sibuk/nolak. Coba upload foto yang ukurannya di bawah 500KB.")
+                    st.write("Saran: Coba pake foto yang ukurannya kecil aja (di bawah 500KB).")
             except Exception as e:
                 st.error(f"Eror sistem video: {e}")
 
