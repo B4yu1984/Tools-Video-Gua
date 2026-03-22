@@ -41,11 +41,13 @@ if st.button("🚀 MULAI BUAT KONTEN"):
                 naskah = res.text
                 st.info(f"📜 **Naskah AI:**\n{naskah}")
 
-            # STEP 2: GENERATE VIDEO
-            with st.spinner("Hugging Face lagi ngerakit video (bisa 30 detik+)..."):
+            # STEP 2: GENERATE VIDEO (PAKAI ALAMAT BARU)
+            with st.spinner("Hugging Face lagi ngerakit video..."):
                 img_bytes = uploaded_file.getvalue()
-                API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt"
+                # ALAMAT BARU SESUAI PESAN EROR TADI
+                API_URL = "https://router.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt"
                 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+                
                 response = requests.post(API_URL, headers=headers, data=img_bytes)
                 
                 if response.status_code == 200:
@@ -53,10 +55,10 @@ if st.button("🚀 MULAI BUAT KONTEN"):
                     st.video(response.content)
                     st.balloons()
                 elif response.status_code == 503:
-                    st.warning("⚠️ Server video lagi penuh. Tunggu 1 menit terus klik tombol lagi ya!")
+                    st.warning("⚠️ Server lagi penuh/loading. Tunggu 1 menit terus klik lagi tombolnya ya!")
                 else:
                     st.error(f"Gagal generate video. Kode error: {response.status_code}")
-                    st.write(f"Detail error: {response.text}")
+                    st.write("Coba klik tombol sekali lagi, biasanya server butuh 'pemanasan'.")
 
         except Exception as e:
-            st.error(f"Eror eksekusi total: {str(e)}")
+            st.error(f"Eror eksekusi: {str(e)}")
