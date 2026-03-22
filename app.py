@@ -1,71 +1,133 @@
 import streamlit as st
 import google.generativeai as genai
-import requests
+from PIL import Image
 
-# --- 1. AMBIL KUNCI ---
-GEMINI_KEY = st.secrets["GEMINI_KEY"]
-HF_TOKEN = st.secrets["HF_TOKEN"]
-
-# --- 2. SETUP GEMINI (Balik ke versi Flash yang sukses kemarin!) ---
-genai.configure(api_key=GEMINI_KEY)
+# --- 1. SETUP KUNCI & GEMINI ---
 try:
-    # Kita pake jurus detektif lagi yang udah terbukti nembus di akun lu
-    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    target_model = next((m for m in models if 'flash' in m), models[0])
-    model_gemini = genai.GenerativeModel(target_model)
-except Exception as e:
-    st.error(f"Gagal setup Gemini: {e}")
+    GEMINI_KEY = st.secrets["GEMINI_KEY"]
+    genai.configure(api_key=GEMINI_KEY)
+    # Pake Flash karena kita butuh dia buat "ngeliat" banyak foto (Multimodal)
+    model_gemini = genai.GenerativeModel('gemini-1.5-flash')
+except Exception:
+    st.error("Kunci GEMINI_KEY belum bener di Secrets, Bro!")
     st.stop()
 
+# --- 2. SETUP "INGATAN" APLIKASI (STATE MANAGEMENT) ---
+# Ini biar aplikasi gak reset pas lu klik tombol
+if 'step' not in st.session_state:
+    st.session_state.step = 1 # Step 1: Input form
+if 'naskah' not in st.session_state:
+    st.session_state.naskah = ""
+if 'prompt_veo' not in st.session_state:
+    st.session_state.prompt_veo = ""
+
 # --- 3. UI APLIKASI ---
-st.set_page_config(page_title="Affiliate Video Pro", page_icon="🎥")
-st.title("🎥 Affiliate Video Pro")
-st.write(f"✅ Sistem Naskah Aktif: `{target_model}`")
+st.set_page_config(page_title="Sutradara Affiliate Pro", page_icon="🎬")
+st.title("🎬 Sutradara Affiliate Pro")
+st.write("Kendali Penuh: Naskah -> Validasi -> Prompt Veo/Labs Flow")
 st.write("---")
 
-prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Marmer")
-uploaded_files = st.file_uploader("Upload Foto Produk (Bisa banyak)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+# === STEP 1: FORM INPUT ===
+st.subheader("📝 1. Persiapan Syuting")
+prod_name = st.text_input("Nama Produk", placeholder="Contoh: Wadah Saji Emas")
 
-if st.button("🚀 MULAI BUAT KONTEN"):
-    if not prod_name or not uploaded_files:
-        st.error("Isi nama produk & upload foto dulu, Bro!")
+col1, col2 = st.columns(2)
+with col1:
+    foto_produk = st.file_uploader("📸 Foto Produk (WAJIB)", type=['jpg', 'png', 'jpeg'])
+with col2:
+    foto_model = st.file_uploader("🧍‍♂️ Foto Model (OPSIONAL)", type=['jpg', 'png', 'jpeg'])
+
+vo_gender = st.selectbox("🎙️ Pilihan Voice Over (VO)", ["Suara Wanita (Ceria/Elegan)", "Suara Pria (Enerjik/Wibawa)"])
+
+# Tombol Eksekusi Step 1
+if st.button("📝 GENERATE NASKAH (SCENE BY SCENE)"):
+    if not prod_name or not foto_produk:
+        st.error("Nama Produk dan Foto Produk WAJIB diisi, Bro!")
     else:
-        # STEP 1: NASKAH (UDAH PASTI JALAN)
         with st.spinner("Gemini lagi nulis naskah..."):
             try:
-                res = model_gemini.generate_content(f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul Indonesia yang asik.")
-                st.info(f"📜 **Naskah AI:**\n{res.text}")
-            except Exception as e:
-                st.error(f"Eror naskah: {e}")
-                st.stop()
-
-        # STEP 2: VIDEO (ANTI 410 GONE)
-        with st.spinner("Hugging Face lagi ngerakit video (Sabar, bisa 1-2 menit)..."):
-            try:
-                img_bytes = uploaded_files[0].getvalue()
+                # Siapin bahan visual buat Gemini
+                content_parts = []
                 
-                # Kita pake model video Ali-Vilab yang aman dari eror 410
-                API_URL = "https://api-inference.huggingface.co/models/ali-vilab/i2vgen-xl"
-                headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-                
-                response = requests.post(API_URL, headers=headers, data=img_bytes, timeout=120)
-                
-                if response.status_code == 200:
-                    st.success("✅ Video Berhasil Dibuat!")
-                    st.video(response.content)
-                    st.balloons()
-                elif response.status_code == 503:
-                    st.warning("⚠️ Server video lagi loading. Sabar Bro, klik tombolnya lagi dalam 30 detik!")
+                # Cek apakah pakai model atau nggak
+                instruksi_model = ""
+                if foto_model:
+                    instruksi_model = "VIDEO MENGGUNAKAN TALENT/MODEL. Gabungkan interaksi model dengan produk di naskah."
+                    img_model = Image.open(foto_model)
+                    content_parts.append(img_model) # Kasih liat foto model ke Gemini
                 else:
-                    st.error(f"Gagal generate video. Kode: {response.status_code}")
-                    st.write("Saran: Coba pake foto yang ukurannya kecil aja (di bawah 500KB).")
+                    instruksi_model = "VIDEO TANPA TALENT. Fokus 100% pada keindahan dan detail produk secara sinematik (B-Roll style)."
+                
+                img_produk = Image.open(foto_produk)
+                content_parts.append(img_produk) # Kasih liat foto produk ke Gemini
+                
+                # Instruksi Naskah
+                prompt_naskah = f"""
+                Buat naskah video TikTok pendek jualan produk '{prod_name}'.
+                Aturan:
+                1. {instruksi_model}
+                2. Voice Over menggunakan: {vo_gender}.
+                3. Pecah menjadi 3-4 Scene. Format wajib per scene:
+                   [SCENE X]
+                   Visual: (Jelaskan adegan visualnya)
+                   VO: (Apa yang diucapkan)
+                   Teks di Layar: (Teks hook)
+                """
+                content_parts.append(prompt_naskah)
+                
+                # Panggil Gemini
+                res = model_gemini.generate_content(content_parts)
+                st.session_state.naskah = res.text
+                st.session_state.step = 2 # Lanjut ke mode validasi
+                st.rerun() # Refresh layar buat nampilin Step 2
             except Exception as e:
-                st.error(f"Eror sistem video: {e}")
+                st.error(f"Gagal bikin naskah: {e}")
 
-# Galeri Preview
-if uploaded_files:
+# === STEP 2: VALIDASI NASKAH ===
+if st.session_state.step >= 2:
     st.write("---")
-    st.write(f"🖼️ {len(uploaded_files)} Foto terpilih:")
-    cols = st.columns(3)
-    for i, file in enumerate(uploaded_files):
-        cols[i % 3].image(file, use_column_width=True)
+    st.subheader("🧐 2. Review Naskah")
+    st.info(st.session_state.naskah)
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        # Tombol Generate Ulang (Ngereset step)
+        if st.button("🔁 GENERATE ULANG NASKAH"):
+            st.session_state.step = 1
+            st.rerun()
+            
+    with col_btn2:
+        # Tombol Lanjut ke Prompt Veo
+        if st.button("✨ GENERATE TO PROMPT (VEO / LABS FLOW)"):
+            with st.spinner("Meracik Prompt Image & Video..."):
+                try:
+                    prompt_veo = f"""
+                    Berdasarkan naskah ini:
+                    {st.session_state.naskah}
+                    
+                    Buat instruksi teknis (PROMPT) per Scene untuk AI Video Generator (Veo / Labs Flow).
+                    Untuk setiap Scene, berikan format ini:
+                    
+                    **🎬 SCENE X**
+                    - **Image Prompt (Bahasa Inggris):** (Prompt sangat detail untuk generate foto awal. Pencahayaan sinematik, kualitas 8k, photorealistic).
+                    - **Motion Prompt (Bahasa Inggris):** (Instruksi pergerakan kamera atau objek untuk Veo/Labs. Contoh: Slow pan to left, cinematic zoom in).
+                    - **Voice Over & BGM:** (Catatan untuk editor: Kalimat VO '{vo_gender}' dan rekomendasi musik background yang cocok).
+                    """
+                    res_veo = model_gemini.generate_content(prompt_veo)
+                    st.session_state.prompt_veo = res_veo.text
+                    st.session_state.step = 3
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal bikin prompt: {e}")
+
+# === STEP 3: HASIL PROMPT VEO ===
+if st.session_state.step == 3:
+    st.write("---")
+    st.subheader("🚀 3. Prompt Siap Eksekusi (Copy-Paste ke Veo/Labs Flow)")
+    st.success(st.session_state.prompt_veo)
+    
+    if st.button("🔄 Mulai Proyek Baru"):
+        st.session_state.step = 1
+        st.session_state.naskah = ""
+        st.session_state.prompt_veo = ""
+        st.rerun()
