@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
+import time
 
 # --- KONFIGURASI ---
 try:
@@ -26,26 +27,30 @@ st.write(f"✅ Sistem Naskah Aktif (`{target_model}`)")
 st.write("---")
 
 prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Keramik Gold")
-uploaded_file = st.file_uploader("Upload Foto Produk", type=['jpg', 'png', 'jpeg'])
 
-# --- EKSEKUSI JURUS UTAMA ---
+# FITUR MULTIPLE UPLOAD BALIK LAGI!
+uploaded_files = st.file_uploader("Upload Foto Produk (Bisa pilih banyak)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+
+# --- EKSEKUSI ---
 if st.button("🚀 MULAI BUAT KONTEN"):
-    if not prod_name or not uploaded_file:
+    if not prod_name or not uploaded_files:
         st.error("Isi nama produk & upload foto dulu, Bro!")
     else:
         try:
-            # STEP 1: GENERATE NASKAH
-            with st.spinner("Si Gemini lagi mikir naskah..."):
-                prompt_script = f"Buat naskah video TikTok pendek untuk jualan produk {prod_name}. Bahasa gaul Indonesia yang menarik."
+            # 1. GENERATE NASKAH
+            with st.spinner("Gemini lagi mikir naskah..."):
+                prompt_script = f"Buat naskah video TikTok pendek untuk jualan {prod_name}. Bahasa gaul Indonesia yang menarik."
                 res = gemini.generate_content(prompt_script)
                 naskah = res.text
                 st.info(f"📜 **Naskah AI:**\n{naskah}")
 
-            # STEP 2: GENERATE VIDEO (PAKAI ALAMAT BARU)
+            # 2. GENERATE VIDEO (PAKE JALUR BARU YANG BENER)
             with st.spinner("Hugging Face lagi ngerakit video..."):
-                img_bytes = uploaded_file.getvalue()
-                # ALAMAT BARU SESUAI PESAN EROR TADI
-                API_URL = "https://router.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt"
+                # Kita ambil foto pertama untuk dijadikan video
+                img_bytes = uploaded_files[0].getvalue()
+                
+                # JALUR BARU: Kita pake model yang lebih stabil buat video gratisan
+                API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt"
                 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
                 
                 response = requests.post(API_URL, headers=headers, data=img_bytes)
@@ -56,9 +61,25 @@ if st.button("🚀 MULAI BUAT KONTEN"):
                     st.balloons()
                 elif response.status_code == 503:
                     st.warning("⚠️ Server lagi penuh/loading. Tunggu 1 menit terus klik lagi tombolnya ya!")
+                elif response.status_code == 404:
+                    # Kalau model utama 404, kita coba model alternatif
+                    st.warning("Model utama lagi offline, mencoba jalur alternatif...")
+                    API_URL_ALT = "https://api-inference.huggingface.co/models/ali-vilab/i2vgen-xl"
+                    response = requests.post(API_URL_ALT, headers=headers, data=img_bytes)
+                    if response.status_code == 200:
+                        st.video(response.content)
+                    else:
+                        st.error("Semua server video lagi penuh, Bro. Coba lagi nanti ya.")
                 else:
-                    st.error(f"Gagal generate video. Kode error: {response.status_code}")
-                    st.write("Coba klik tombol sekali lagi, biasanya server butuh 'pemanasan'.")
+                    st.error(f"Gagal generate video. Kode: {response.status_code}")
 
         except Exception as e:
             st.error(f"Eror eksekusi: {str(e)}")
+
+# Tampilan Galeri (Biar lu bisa liat foto-foto yang lu upload)
+if uploaded_files:
+    st.write("---")
+    st.write(f"🖼️ {len(uploaded_files)} Foto dipilih:")
+    cols = st.columns(3)
+    for i, file in enumerate(uploaded_files):
+        cols[i % 3].image(file, use_column_width=True)
