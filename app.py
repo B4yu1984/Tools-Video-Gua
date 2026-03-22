@@ -8,7 +8,7 @@ HF_TOKEN = st.secrets["HF_TOKEN"]
 # --- 2. UI APLIKASI ---
 st.set_page_config(page_title="Affiliate Video Pro", page_icon="🎥")
 st.title("🎥 Affiliate Video Pro")
-st.write("✅ Sistem Naskah Aktif: `Jalur Langsung (Direct API)`")
+st.write("✅ Sistem Naskah Aktif: `Direct API (gemini-pro)`")
 st.write("---")
 
 prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Marmer")
@@ -18,10 +18,11 @@ if st.button("🚀 MULAI BUAT KONTEN"):
     if not prod_name or not uploaded_files:
         st.error("Isi nama produk & upload foto dulu, Bro!")
     else:
-        # STEP 1: NASKAH (TEMBAK LANGSUNG KE PUSAT GEMINI)
+        # STEP 1: NASKAH (GANTI MODEL KE GEMINI-PRO)
         with st.spinner("Gemini lagi nulis naskah..."):
             try:
-                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
+                # PERUBAHAN DI SINI: Kita panggil 'gemini-pro' yang pasti aktif di semua API Key
+                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_KEY}"
                 prompt = f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul Indonesia yang asik dan viral."
                 
                 payload = {
@@ -38,7 +39,7 @@ if st.button("🚀 MULAI BUAT KONTEN"):
                 else:
                     st.error(f"Gagal narik naskah. Kode: {res.status_code}")
                     st.write(res.text)
-                    st.stop() # Berhenti di sini kalau naskah gagal
+                    st.stop() 
             except Exception as e:
                 st.error(f"Eror sistem naskah: {e}")
                 st.stop()
@@ -48,7 +49,6 @@ if st.button("🚀 MULAI BUAT KONTEN"):
             try:
                 img_bytes = uploaded_files[0].getvalue()
                 
-                # Model Ali-Vilab
                 API_URL = "https://api-inference.huggingface.co/models/ali-vilab/i2vgen-xl"
                 hf_headers = {"Authorization": f"Bearer {HF_TOKEN}"}
                 
