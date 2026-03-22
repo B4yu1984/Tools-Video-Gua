@@ -1,81 +1,61 @@
 import streamlit as st
 import google.generativeai as genai
 import requests
-import time
 
-# --- KONFIGURASI API ---
-try:
-    GEMINI_KEY = st.secrets["GEMINI_KEY"]
-    HF_TOKEN = st.secrets["HF_TOKEN"]
-except Exception:
-    st.error("Waduh, Kunci API belum lu pasang di Secrets, Bro!")
-    st.stop()
+# --- 1. AMBIL KUNCI ---
+GEMINI_KEY = st.secrets["GEMINI_KEY"]
+HF_TOKEN = st.secrets["HF_TOKEN"]
 
-# --- SETUP GOOGLE AI ---
+# --- 2. SETUP GEMINI ---
 genai.configure(api_key=GEMINI_KEY)
-try:
-    models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    target_model = next((m for m in models if 'flash' in m), next((m for m in models if 'pro' in m), models[0]))
-    gemini = genai.GenerativeModel(target_model)
-except Exception as e:
-    st.error(f"Gemini mogok: {e}")
-    st.stop()
+model_gemini = genai.GenerativeModel('gemini-1.5-flash')
 
-# --- UI APLIKASI ---
+# --- 3. TAMPILAN ---
 st.set_page_config(page_title="Affiliate Video Pro", page_icon="🎥")
 st.title("🎥 Affiliate Video Pro")
-st.write(f"✅ Sistem Naskah Aktif: `{target_model}`")
 st.write("---")
 
-prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Keramik Gold")
-
-# FITUR MULTIPLE UPLOAD BALIK LAGI!
+prod_name = st.text_input("Nama Produk", placeholder="Contoh: Piring Keramik Mewah")
 uploaded_files = st.file_uploader("Upload Foto Produk (Bisa banyak)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
 
-# --- EKSEKUSI ---
 if st.button("🚀 MULAI BUAT KONTEN"):
     if not prod_name or not uploaded_files:
         st.error("Isi nama produk & upload foto dulu, Bro!")
     else:
         try:
-            # 1. GENERATE NASKAH (PROSES GEMINI)
-            with st.spinner("Gemini lagi ngeracik naskah..."):
-                prompt = f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul Indonesia yang asik."
-                res = gemini.generate_content(prompt)
+            # STEP 1: NASKAH
+            with st.spinner("Gemini lagi nulis naskah..."):
+                res = model_gemini.generate_content(f"Buat naskah TikTok pendek jualan {prod_name}. Bahasa gaul.")
                 st.info(f"📜 **Naskah AI:**\n{res.text}")
 
-            # 2. GENERATE VIDEO (PROSES HUGGING FACE)
-            with st.spinner("Hugging Face lagi ngerakit video (Bisa 1-2 menit)..."):
-                # Kita ambil foto pertama buat dijadiin video
+            # STEP 2: VIDEO
+            with st.spinner("Lagi ngerakit video (Bisa 1-2 menit)..."):
                 img_bytes = uploaded_files[0].getvalue()
                 
-                # Kita coba jalur 'Router' terbaru dengan model alternatif yang lebih ringan
-                # Model ini biasanya lebih ramah buat API gratisan
-                API_URL = "https://router.huggingface.co/models/ali-vilab/i2vgen-xl"
+                # ALAMAT BARU YANG DIMINTA HUGGING FACE
+                API_URL = "https://router.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt"
                 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
                 
-                # Kirim permintaan
-                response = requests.post(API_URL, headers=headers, data=img_bytes, timeout=150)
+                # Kirim data
+                response = requests.post(API_URL, headers=headers, data=img_bytes, timeout=180)
                 
                 if response.status_code == 200:
                     st.success("✅ Video Berhasil Dibuat!")
                     st.video(response.content)
                     st.balloons()
                 elif response.status_code == 503:
-                    st.warning("⚠️ Server lagi sibuk/loading model. Klik lagi tombolnya 1 menit lagi ya!")
-                elif response.status_code == 410:
-                    st.error("Aduh, Hugging Face bener-bener matiin jalur video ini. Harus ganti strategi, Bro!")
+                    st.warning("⚠️ Server lagi 'pemanasan'. Tunggu 30 detik terus klik tombol lagi ya!")
                 else:
                     st.error(f"Gagal generate video. Kode: {response.status_code}")
-                    st.write(f"Detail: {response.text[:200]}")
+                    st.write(f"Detail: {response.text[:200]}") # Biar kita tau eror aslinya apa
 
         except Exception as e:
-            st.error(f"Eror sistem: {str(e)}")
+            st.error(f"Ada masalah sistem: {e}")
 
-# Tampilan Galeri Foto
+# Galeri Preview
 if uploaded_files:
     st.write("---")
-    st.write(f"🖼️ {len(uploaded_files)} Foto dipilih:")
+    st.write(f"🖼️ {len(uploaded_files)} Foto terpilih:")
     cols = st.columns(3)
     for i, file in enumerate(uploaded_files):
         cols[i % 3].image(file, use_column_width=True)
