@@ -15,83 +15,126 @@ except Exception as e:
     st.error(f"Gagal Setup Kunci: {e}")
     st.stop()
 
-# --- 2. SETUP STATE MANAGEMENT ---
-if 'step' not in st.session_state:
-    st.session_state.step = 1
-if 'naskah' not in st.session_state:
-    st.session_state.naskah = ""
-if 'prompt_data' not in st.session_state:
-    st.session_state.prompt_data = []
-if 'vo_gender' not in st.session_state:
-    st.session_state.vo_gender = ""
-if 'pilihan_bg' not in st.session_state:
-    st.session_state.pilihan_bg = ""
-if 'aktivitas' not in st.session_state:
-    st.session_state.aktivitas = ""
+# --- 2. SETUP STATE MANAGEMENT (Memori Aplikasi) ---
+if 'step' not in st.session_state: st.session_state.step = 1
+if 'naskah' not in st.session_state: st.session_state.naskah = ""
+if 'prompt_data' not in st.session_state: st.session_state.prompt_data = []
+
+# Memori Konteks
+if 'vo_gender' not in st.session_state: st.session_state.vo_gender = ""
+if 'pilihan_bg' not in st.session_state: st.session_state.pilihan_bg = ""
+if 'aktivitas' not in st.session_state: st.session_state.aktivitas = ""
+if 'merk_produk' not in st.session_state: st.session_state.merk_produk = ""
+if 'kelebihan_produk' not in st.session_state: st.session_state.kelebihan_produk = ""
+if 'gaya_video' not in st.session_state: st.session_state.gaya_video = ""
+if 'vo_style' not in st.session_state: st.session_state.vo_style = ""
 
 # --- 3. UI APLIKASI ---
-st.set_page_config(page_title="Sutradara Affiliate Pro v4", page_icon="🎬", layout="wide")
-st.title("🎬 Sutradara Affiliate Pro v4 (Smart Editor)")
-st.write(f"✅ Sistem Aktif: `{target_model}`")
-st.write("Flow Pro: Naskah -> Review & Revisi AI -> Foto di Gemini Chat -> Animasikan di Veo")
+st.set_page_config(page_title="Sutradara Affiliate Pro Ultimate", page_icon="🎬", layout="wide")
+st.title("🎬 Sutradara Affiliate Pro Ultimate")
+st.write(f"✅ Sistem Aktif: `{target_model}` | 💸 Ultimate Cuan Factory")
 st.write("---")
 
 # === STEP 1: FORM INPUT ===
 if st.session_state.step == 1:
-    st.subheader("📝 1. Persiapan Syuting")
-    prod_name = st.text_input("Nama Produk", placeholder="Contoh: Smartwatch Pro")
+    st.subheader("📝 1. Persiapan Syuting (Detail Produk)")
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        prod_name = st.text_input("📦 Nama Produk (Wajib)", placeholder="Contoh: Smartwatch / Wadah Saji")
+    with col_b:
+        merk_user = st.text_input("🏷️ Merk Produk (Opsional)", placeholder="Contoh: Samsung / Goto (Biar disebut di naskah)")
 
+    kelebihan_user = st.text_area("✨ Kelebihan/Fitur Produk (Opsional)", placeholder="Tuliskan data valid kelebihan produk di sini agar naskah tidak lebay/halu...")
+
+    st.subheader("🎥 2. Setup Visual & Talent")
     col1, col2 = st.columns(2)
     with col1:
-        foto_produk = st.file_uploader("📸 Foto Produk Polos (WAJIB)", type=['jpg', 'png', 'jpeg'])
-        if foto_produk: st.image(foto_produk, caption="Produk Asli", width=200)
+        # UPDATE MULTIPLE FILES DI SINI
+        foto_produk = st.file_uploader("📸 Foto Produk (WAJIB, BISA BANYAK)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+        if foto_produk: st.success(f"{len(foto_produk)} Foto produk siap!")
     with col2:
         foto_model = st.file_uploader("🧍‍♂️ Foto Model/Talent (OPSIONAL)", type=['jpg', 'png', 'jpeg'])
-        if foto_model: st.image(foto_model, caption="Talent Asli", width=200)
+        if foto_model: st.image(foto_model, caption="Talent Asli", width=150)
 
-    pilihan_bg_user = st.selectbox("🖼️ Pilihan Background", ["Dapur", "Pinggir Jalan Kota", "Taman", "Studio", "Kamar Tidur"])
-    aktivitas_user = st.text_input("🏃‍♂️ Aktivitas Talent", placeholder="Contoh: lari atau joging / sedang memasak")
-    vo_gender = st.selectbox("🎙️ Pilihan Voice Over (VO)", ["Suara Wanita (Ceria/Warm)", "Suara Pria (Enerjik/Wibawa)"])
+    col3, col4 = st.columns(2)
+    with col3:
+        pilihan_bg_user = st.selectbox("🖼️ Pilihan Background", ["Dapur", "Pinggir Jalan Kota", "Taman", "Studio", "Kamar Tidur", "Ruang Tamu"])
+    with col4:
+        aktivitas_user = st.text_input("🏃‍♂️ Aktivitas Talent", placeholder="Contoh: joging / sedang memasak / unboxing")
 
-    if st.button("📝 GENERATE NASKAH (SCENE BY SCENE)"):
+    st.subheader("🎙️ 3. Setup Gaya & Audio")
+    col5, col6, col7 = st.columns(3)
+    with col5:
+        gaya_video_user = st.selectbox("🎬 Gaya Video", ["Normal (Hook -> Soft Selling -> CTA)", "Review Produk (Fokus Cara Pakai & Manfaat)"])
+    with col6:
+        vo_gender_user = st.selectbox("👤 Suara VO", ["Wanita (Ceria/Warm)", "Pria (Enerjik/Wibawa)"])
+    with col7:
+        vo_style_user = st.selectbox("🎭 Style Penyampaian VO", ["Normal (Lugas/Promosi)", "Story Telling (Bercerita/Mengalir)"])
+
+    if st.button("🚀 GENERATE NASKAH (SCENE BY SCENE)"):
         if not prod_name or not foto_produk or not pilihan_bg_user or not aktivitas_user:
-            st.error("Nama Produk, Foto Produk, Background, dan Aktivitas WAJIB diisi, Bro!")
+            st.error("Nama Produk, Foto Produk (minimal 1), Background, dan Aktivitas WAJIB diisi, Bro!")
         else:
-            with st.spinner("Gemini lagi nulis naskah yang nyatu sama konteks..."):
+            with st.spinner("Sutradara AI lagi ngeracik naskah ultimate lu..."):
                 try:
-                    st.session_state.vo_gender = vo_gender
+                    # Simpan semua input ke memori
+                    st.session_state.vo_gender = vo_gender_user
                     st.session_state.pilihan_bg = pilihan_bg_user
                     st.session_state.aktivitas = aktivitas_user
+                    st.session_state.merk_produk = merk_user
+                    st.session_state.kelebihan_produk = kelebihan_user
+                    st.session_state.gaya_video = gaya_video_user
+                    st.session_state.vo_style = vo_style_user
                     
                     content_parts = []
                     
+                    # Setup Model
                     if foto_model:
-                        instruksi_model = f"VIDEO MENGGUNAKAN TALENT/MODEL. Gabungkan interaksi model dengan produk. Model akan melakukan aktivitas '{st.session_state.aktivitas}' di background '{st.session_state.pilihan_bg}'."
-                        img_model = Image.open(foto_model)
-                        content_parts.append(img_model)
+                        instruksi_model = f"VIDEO MENGGUNAKAN TALENT. Model akan melakukan aktivitas '{st.session_state.aktivitas}' di background '{st.session_state.pilihan_bg}'."
+                        content_parts.append(Image.open(foto_model))
                     else:
-                        instruksi_model = f"VIDEO TANPA TALENT. Fokus 100% pada keindahan dan detail produk secara sinematik (B-Roll style) di background '{st.session_state.pilihan_bg}'."
+                        instruksi_model = f"VIDEO TANPA TALENT. Fokus 100% pada keindahan dan detail produk secara sinematik di background '{st.session_state.pilihan_bg}'."
                     
-                    img_produk = Image.open(foto_produk)
-                    content_parts.append(img_produk)
+                    # Setup Multiple Foto Produk
+                    for img_file in foto_produk:
+                        content_parts.append(Image.open(img_file))
+                        
+                    # Setup Teks Kondisional (Merk & Kelebihan)
+                    instruksi_merk = f"Pastikan menyebutkan merk '{st.session_state.merk_produk}' secara natural dalam naskah." if st.session_state.merk_produk else "Sebutkan nama produk secara umum."
+                    instruksi_kelebihan = f"Gunakan data/fakta berikut sebagai keunggulan utama produk agar tidak berlebihan: {st.session_state.kelebihan_produk}" if st.session_state.kelebihan_produk else "Jelaskan kelebihan produk secara menarik berdasarkan pengamatan visual."
                     
+                    # Setup Gaya Video (Dinamis)
+                    if "Review Produk" in st.session_state.gaya_video:
+                        struktur_scene = """
+                       - SCENE AWAL: Gunakan HOOK yang kuat.
+                       - SCENE TENGAH (Bisa 2 Scene): Fokus pada REVIEW PRODUK. Tunjukkan cara pemakaian, demonstrasi, dan tonjolkan manfaat spesifik serta kelebihannya secara mendetail.
+                       - SCENE AKHIR: Call to Action (CTA) yang jelas.
+                        """
+                    else:
+                        struktur_scene = """
+                       - SCENE AWAL: Gunakan HOOK yang kuat.
+                       - SCENE TENGAH: Basa-basi asik, jelaskan kelebihan produk secara ringan tapi menarik (Soft Selling).
+                       - SCENE AKHIR: Call to Action (CTA) yang jelas.
+                        """
+
                     prompt_naskah = f"""
-                    Buat naskah video TikTok pendek jualan produk '{prod_name}'.
+                    Buat naskah video TikTok jualan produk '{prod_name}'.
                     Aturan:
                     1. {instruksi_model}
-                    2. Voice Over menggunakan: {st.session_state.vo_gender}.
-                    3. STRUKTUR NASKAH WAJIB:
-                       - SCENE AWAL: Gunakan HOOK yang kuat (pertanyaan atau pernyataan yang bikin penasaran/relate).
-                       - SCENE TENGAH: Basa-basi asik, ceritakan kelebihan produk atau pengalaman menggunakan produk.
-                       - SCENE AKHIR: Call to Action (CTA) yang jelas agar penonton segera beli/klik keranjang.
-                    4. Pecah menjadi 3-4 Scene. Format wajib per scene (Pisahkan dengan garis '---'):
+                    2. {instruksi_merk}
+                    3. {instruksi_kelebihan}
+                    4. Voice Over menggunakan suara: {st.session_state.vo_gender} dengan gaya penyampaian {st.session_state.vo_style}.
+                    5. STRUKTUR NASKAH WAJIB ({st.session_state.gaya_video}):
+                       {struktur_scene}
+                    6. Pecah menjadi 3-4 Scene. Format wajib per scene (Pisahkan dengan garis '---'):
                        
                        [SCENE X]
-                       **Visual Description:** (Jelaskan visualnya detail, sebutkan background '{st.session_state.pilihan_bg}' dan aktivitas '{st.session_state.aktivitas}')
-                       **VO:** (Apa yang diucapkan, sesuaikan tone dengan aktivitas)
+                       **Visual Description:** (Jelaskan visualnya, sebutkan background '{st.session_state.pilihan_bg}' & aktivitas '{st.session_state.aktivitas}'. Sesuaikan dengan foto-foto referensi yang diberikan)
+                       **VO:** (Tuliskan kalimat VO. Sesuaikan dengan gaya {st.session_state.vo_style})
                        **Teks di Layar:** (Teks hook/highlight)
                        ---
-                    5. ATURAN VISUAL/VIDEO: Hindari adegan interaksi fisik yang rumit pada produk (seperti membuka tutup, menuangkan air, atau mengangkat barang). Fokuskan visual pada: pergerakan kamera sinematik, senyuman/ekspresi talent, atau gestur tangan yang HANYA menunjuk ke arah produk tanpa merubah/menyentuh bentuk fisiknya.
+                    7. ATURAN VISUAL/VIDEO: Hindari adegan interaksi fisik yang rumit pada produk (seperti membuka tutup, menuangkan air). Fokus pada pergerakan kamera sinematik, ekspresi, atau gestur menunjuk.
                     """
                     content_parts.append(prompt_naskah)
                     
@@ -107,19 +150,16 @@ if st.session_state.step == 2:
     st.write("---")
     st.subheader("🧐 2. Review & Validasi Naskah")
     
-    # Text area buat edit manual
     new_naskah = st.text_area("Validasi Naskah Anda (Edit manual jika perlu):", st.session_state.naskah, height=300)
     st.session_state.naskah = new_naskah 
     
     st.markdown("💡 **Smart Editor AI:** Ada adegan yang kurang pas? Kasih instruksi ke AI buat ngerevisi khusus di bagian itu aja.")
-    # Input Free Text buat koreksi parsial
     koreksi_adegan = st.text_input("✏️ Koreksi Adegan AI (Opsional)", placeholder="Contoh: Tolong Scene 2 ganti VO-nya jadi lebih ngegas, scene lain biarin aja")
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         if st.button("🔁 REVISI / GENERATE ULANG (AI)"):
             if koreksi_adegan:
-                # KONDISI 1: User ngisi field koreksi -> Revisi Parsial pakai AI
                 with st.spinner("Gemini lagi ngedit adegan yang lu minta..."):
                     try:
                         prompt_koreksi = f"""
@@ -132,7 +172,7 @@ if st.session_state.step == 2:
                         Aturan:
                         1. HANYA ubah adegan atau teks yang diminta pada instruksi.
                         2. Pertahankan scene lainnya sama persis seperti naskah aslinya.
-                        3. Tampilkan kembali SELURUH naskah (dari Scene awal sampai akhir) dengan format yang sama.
+                        3. Tampilkan kembali SELURUH naskah (dari Scene awal sampai akhir).
                         """
                         res_koreksi = model_gemini.generate_content(prompt_koreksi)
                         st.session_state.naskah = res_koreksi.text
@@ -140,14 +180,13 @@ if st.session_state.step == 2:
                     except Exception as e:
                         st.error(f"Gagal revisi naskah: {e}")
             else:
-                # KONDISI 2: Kosong -> Reset total ke Step 1
                 st.session_state.step = 1
                 st.session_state.naskah = ""
                 st.rerun()
             
     with col_btn2:
         if st.button("✨ VALIDASI NASKAH & RACIK MASTER PROMPT"):
-            with st.spinner("Meracik Master Prompt Video & Gambar (Veo/Nano Banana 2)..."):
+            with st.spinner("Meracik Master Prompt Video & Gambar..."):
                 try:
                     prompt_structure = f"""
                     Berdasarkan naskah draf ini:
@@ -158,8 +197,8 @@ if st.session_state.step == 2:
                     [
                       {{
                         "scene": "1",
-                        "image_prompt": "A highly detailed, cinematic studio photograph of [produk polos description] being held/worn by [model description if any] while performing '{st.session_state.aktivitas}' on a '{st.session_state.pilihan_bg}' background, realistic cinematic lighting, 8k resolution, photorealistic",
-                        "video_prompt": "Ultra realistic commercial video, vertical 9:16.\\n\\nScene: (Deskripsikan visual scene secara presisi bahasa Inggris, sebutkan background '{st.session_state.pilihan_bg}' dan aktivitas '{st.session_state.aktivitas}')\\n\\nTalent Motion: (The talent smiles naturally, makes subtle expressive hand gestures while talking, slight head tilt, natural breathing, and relaxed body language. NOT a static pose.)\\n\\nCamera movement: (Deskripsikan pergerakan kamera misal: Start from right, slowly slide left while zooming in. Smooth cinematic motion, shallow depth of field)\\n\\nLighting & FX: (Deskripsikan lighting)\\n\\nAudio & Ambient: (Deskripsikan background misal: Realistic ambient room tone)\\n\\nVoice over: (Contoh: {st.session_state.vo_gender}, natural Indonesian accent. She/He says calmly/energetically: '(Masukkan kalimat VO dari naskah di sini)')\\n\\nHigh detail, 4K realism, No subtitles, No watermark."
+                        "image_prompt": "A highly detailed, cinematic studio photograph of {st.session_state.merk_produk} [produk polos description] being held/worn by [model description if any] while performing '{st.session_state.aktivitas}' on a '{st.session_state.pilihan_bg}' background, realistic cinematic lighting, 8k resolution, photorealistic",
+                        "video_prompt": "Ultra realistic commercial video, vertical 9:16.\\n\\nScene: (Deskripsikan visual scene secara presisi bahasa Inggris, sebutkan background '{st.session_state.pilihan_bg}' dan aktivitas '{st.session_state.aktivitas}')\\n\\nTalent Motion: (The talent smiles naturally, makes subtle expressive hand gestures while talking, slight head tilt, natural breathing, and relaxed body language. NOT a static pose.)\\n\\nCamera movement: (Deskripsikan pergerakan kamera misal: Start from right, slowly slide left while zooming in. Smooth cinematic motion, shallow depth of field)\\n\\nLighting & FX: (Deskripsikan lighting)\\n\\nAudio & Ambient: (Deskripsikan background misal: Realistic ambient room tone)\\n\\nVoice over: ({st.session_state.vo_gender}, {st.session_state.vo_style} style, natural Indonesian accent. She/He says: '(Masukkan kalimat VO dari naskah di sini)')\\n\\nHigh detail, 4K realism, No subtitles, No watermark."
                       }}
                     ]
                     """
