@@ -11,7 +11,7 @@ genai.configure(api_key=GEMINI_KEY)
 
 # Trik: Kita panggil modelnya langsung tanpa prefix 'models/'
 # Karena beberapa versi library justru eror kalau dipakein prefix
-gemini = genai.GenerativeModel('gemini-1.5-flash')
+gemini = genai.GenerativeModel('gemini-pro')
 
 # 3. Setup HuggingFace
 client = InferenceClient(token=HF_TOKEN)
